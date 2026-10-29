@@ -28,39 +28,104 @@ class FleetAuditor: #Class representing the network fleet compliance auditor
         self.skipped_devices = 0
         self.roles = {}
         self.interface_count={"up":0,"down":0,"other":0}
-        self.devics = []
+        self.devices = []
 
-def load_files(self)->None: # Safely load and validate both the XML inventory and YAML policy files
-    if not self.xml_path.exists() or not self.yaml_path.exists():
-        raise AuditError("Input files do not exist")
-    
-    # Load YAML policy
-    try:
-        with open(self.yaml_path,"r",encoding="utf-8") as f:
-            self.policy = yaml.safe_load(f)
-            if not isinstance(self.policy, dict):
-                raise AuditError("Policy is not valid")
-    except yaml.YAMLError as e:
-        raise AuditError((f"Invalid YAML format: {e}",self.yaml_path.name))
-    except Exception as e:
-        raise AuditError(f"Error reading policy file: {e}",self.yaml_path.name)
+    def load_files(self)->None: # Safely load and validate both the XML inventory and YAML policy files
+        if not self.xml_path.exists() or not self.yaml_path.exists():
+            raise AuditError("Input files do not exist")
         
-    
-    # Parse XML inventory
-    try: 
-        tree = ET.parse(self.xml_path)
-        root = tree.getroot()
-    except ET.ParseError as e:
-        raise AuditError((f"Invalid XML format: {e}",self.xml_path.name))
-    except Exception as e:
-        raise AuditError(f"Error Parsing XML inventory: {e}",self.xml_path.name)
-    
-    self.site = root.get("site",None)
-    
-    for device in root.findall("device"):
-        device_id = device.get("id")
-    
+        # Load YAML policy
+        try:
+            with open(self.yaml_path,"r",encoding="utf-8") as f:
+                self.policy = yaml.safe_load(f)
+                if not isinstance(self.policy, dict):
+                    raise AuditError("Policy is not valid")
+        except yaml.YAMLError as e:
+            raise AuditError((f"Invalid YAML format: {e}",self.yaml_path.name))
+        except Exception as e:
+            raise AuditError(f"Error reading policy file: {e}",self.yaml_path.name)
+            
         
+        # Parse XML inventory
+        try: 
+            tree = ET.parse(self.xml_path)
+            root = tree.getroot()
+        except ET.ParseError as e:
+            raise AuditError((f"Invalid XML format: {e}",self.xml_path.name))
+        except Exception as e:
+            raise AuditError(f"Error Parsing XML inventory: {e}",self.xml_path.name)
+        
+        self.site = root.get("site",None)
+        
+        for device in root.findall("device"):
+            device_id = device.get("id")
+            
+            if not device_id or not device_id.strip(): # A device with no id attribute is skipped and couted
+                self.skipped_devices += 1 
+                continue
+            
+            self.total_devices += 1 
+            role = device.get("role")
+            os_version = device.get("os")
+            
+            
+            if role:
+                self.roles[role] = self.roles.get(role,0) + 1 
+            
+            dev_interfaces = []
+            for iface in device.findall("interface"):
+                name = iface.get("name")
+                status = iface.get("status","other")
+                
+                if status in self.interface_count:
+                    self.interface_count[status] += 1 
+                else:
+                    self.interface_count["other"] += 1
+                    
+                dev_interfaces.append({"name":name,"status":status})
+            
+            owner_elem = device.find("owner")
+            owner = owner_elem.text.strip() if (owner_elem is not None and owner_elem.text) else ""
+            
+            self.devices.append.append({
+                "id": device_id,
+                "role": role,
+                "os":os_version,
+                "owner": owner,
+                "interface":dev_interfaces
+                })
+        
+        
+        def generate_report(self) -> None: #Process Tier 1 rules and write the audit.json output file
+            self.load_files()
+            
+            # sorted IDs of all kept devices with no violations checked yet
+            compliant_ids = sorted([d["id"]]for d in self.services)
+            
+            report = {
+                "site": self.site,
+                "total_devices": self.total_devices,
+                "skipped_devices": self.skipped_devices,
+                "roles":self.roles,
+                "interfaces": self.interface_count,
+                "violations":[],
+                "compliant":compliant_ids
+                }
+        
+            output_path = Path("audit.json")
+            try:
+                with open(output_path,"w",encoding="utf-8") as f:
+                    json.dump(report, f, indent=4,sort_key=True)
+                print (f"Tier 1 audit report successfully written to {output_path}")
+            except Exception as e:
+                raise AuditError((f"Error writing audit.json: {e}", output_path.name))
+            
+        
+        def main():
+            if len(sys.argv) != 3:
+                print("usage: python pa2.py DEVICES.xml POLICY.yaml", file=sys.stderr)
+    
+         
         
         
         
