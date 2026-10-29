@@ -30,5 +30,57 @@ class FleetAuditor: #Class representing the network fleet compliance auditor
         self.interface_count={"up":0,"down":0,"other":0}
         self.devics = []
 
-def load_files(self)->None: 
+def load_files(self)->None: # Safely load and validate both the XML inventory and YAML policy files
+    if not self.xml_path.exists() or not self.yaml_path.exists():
+        raise AuditError("Input files do not exist")
+    
+    # Load YAML policy
+    try:
+        with open(self.yaml_path,"r",encoding="utf-8") as f:
+            self.policy = yaml.safe_load(f)
+            if not isinstance(self.policy, dict):
+                raise AuditError("Policy is not valid")
+    except yaml.YAMLError as e:
+        raise AuditError((f"Invalid YAML format: {e}",self.yaml_path.name))
+    except Exception as e:
+        raise AuditError(f"Error reading policy file: {e}",self.yaml_path.name)
+        
+    
+    # Parse XML inventory
+    try: 
+        tree = ET.parse(self.xml_path)
+        root = tree.getroot()
+    except ET.ParseError as e:
+        raise AuditError((f"Invalid XML format: {e}",self.xml_path.name))
+    except Exception as e:
+        raise AuditError(f"Error Parsing XML inventory: {e}",self.xml_path.name)
+    
+    self.site = root.get("site",None)
+    
+    for device in root.findall("device"):
+        device_id = device.get("id")
+    
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+    
     
