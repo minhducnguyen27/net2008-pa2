@@ -1,7 +1,8 @@
+#!/usr/bin/env python3
 #Name: Minh Duc Nguyen 
 #Student ID: 040844107
 
-#!/usr/bin/env python3
+
 
 
 
@@ -41,7 +42,7 @@ class FleetAuditor: #Class representing the network fleet compliance auditor
                 if not isinstance(self.policy, dict):
                     raise AuditError("Policy is not valid")
         except yaml.YAMLError as e:
-            raise AuditError((f"Invalid YAML format: {e}",self.yaml_path.name))
+            raise AuditError(f"Invalid YAML format: {e}",self.yaml_path.name)
         except Exception as e:
             raise AuditError(f"Error reading policy file: {e}",self.yaml_path.name)
             
@@ -87,7 +88,7 @@ class FleetAuditor: #Class representing the network fleet compliance auditor
             owner_elem = device.find("owner")
             owner = owner_elem.text.strip() if (owner_elem is not None and owner_elem.text) else ""
             
-            self.devices.append.append({
+            self.devices.append({
                 "id": device_id,
                 "role": role,
                 "os":os_version,
@@ -96,35 +97,51 @@ class FleetAuditor: #Class representing the network fleet compliance auditor
                 })
         
         
-        def generate_report(self) -> None: #Process Tier 1 rules and write the audit.json output file
-            self.load_files()
-            
-            # sorted IDs of all kept devices with no violations checked yet
-            compliant_ids = sorted([d["id"]]for d in self.services)
-            
-            report = {
-                "site": self.site,
-                "total_devices": self.total_devices,
-                "skipped_devices": self.skipped_devices,
-                "roles":self.roles,
-                "interfaces": self.interface_count,
-                "violations":[],
-                "compliant":compliant_ids
-                }
+    def generate_report(self) -> None: #Process Tier 1 rules and write the audit.json output file
+        self.load_files()
         
-            output_path = Path("audit.json")
-            try:
-                with open(output_path,"w",encoding="utf-8") as f:
-                    json.dump(report, f, indent=4,sort_key=True)
-                print (f"Tier 1 audit report successfully written to {output_path}")
-            except Exception as e:
-                raise AuditError((f"Error writing audit.json: {e}", output_path.name))
-            
+        # sorted IDs of all kept devices with no violations checked yet
+        compliant_ids = sorted([d["id"] for d in self.devices])
         
-        def main():
-            if len(sys.argv) != 3:
-                print("usage: python pa2.py DEVICES.xml POLICY.yaml", file=sys.stderr)
+        report = {
+            "site": self.site,
+            "total_devices": self.total_devices,
+            "skipped_devices": self.skipped_devices,
+            "roles":self.roles,
+            "interfaces": self.interface_count,
+            "violations":[],
+            "compliant":compliant_ids
+            }
     
+        output_path = Path("audit.json")
+        try:
+            with open(output_path,"w",encoding="utf-8") as f:
+                json.dump(report, f, indent=4,sort_keys=True)
+            print (f"Tier 1 audit report successfully written to {output_path}")
+        except Exception as e:
+            raise AuditError((f"Error writing audit.json: {e}", output_path.name))
+            
+        
+def main():
+    if len(sys.argv) != 3:
+        print("usage: python pa2.py DEVICES.xml POLICY.yaml", file=sys.stderr)
+        sys.exit(2)
+        
+    xml_file = sys.argv[1]
+    yaml_file = sys.argv[2]
+    
+    try:
+        auditor = FleetAuditor(xml_file,yaml_file)
+        auditor.generate_report()
+        
+    except AuditError as e:
+        filename_info =f" in '{e.filename}'" if e.filename else ""
+        print(f"Error{filename_info}: {e}", file=sys.stderr)
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
+        
          
         
         
