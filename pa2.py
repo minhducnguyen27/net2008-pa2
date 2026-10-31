@@ -54,7 +54,7 @@ class FleetAuditor: #Class representing the network fleet compliance auditor
             tree = ET.parse(self.xml_path)
             root = tree.getroot()
         except ET.ParseError as e:
-            raise AuditError((f"Invalid XML format: {e}",self.xml_path.name))
+            raise AuditError(f"Invalid XML format: {e}",self.xml_path.name)
         except Exception as e:
             raise AuditError(f"Error Parsing XML inventory: {e}",self.xml_path.name)
         
@@ -102,7 +102,7 @@ class FleetAuditor: #Class representing the network fleet compliance auditor
     def evaluate_policies(self): #Set up policies to evaluate devices
         min_os_policy = self.policy.get("min_os",{}) # check if the device have mininum OS
         require_owner_policy = self.policy.get("require_owner",False) # check if the device have owner
-        max_down_policy = self.policy.get("max_down_interface",None) # check if the device have max down policy
+        max_down_policy = self.policy.get("max_down_interfaces",None) # check if the device have max down policy
         
         for dev in self.devices:
             dev_id = dev["id"]
@@ -116,7 +116,7 @@ class FleetAuditor: #Class representing the network fleet compliance auditor
                 if role not in min_os_policy:
                     self.violations.append({
                         "device": dev_id,
-                        "type":"unknow_role",
+                        "type":"unknown_role",
                         "role":role})
                     dev_violation = True
                         
@@ -128,7 +128,7 @@ class FleetAuditor: #Class representing the network fleet compliance auditor
                 dev_violation = True
                 
             if max_down_policy is not None: # Check for max down
-                down_count = sum (1 for link in interfaces if link["status"=="down"])
+                down_count = sum (1 for link in interfaces if link["status"] == "down")
                 if down_count > max_down_policy:
                     self.violations.append({
                         "device": dev_id,
@@ -143,9 +143,8 @@ class FleetAuditor: #Class representing the network fleet compliance auditor
         
     def generate_report(self): #Process Tier 1 and Tier 2 and write the audit.json output file
         self.load_files()
+        self.evaluate_policies()
         
-        # sorted IDs of all kept devices with no violations checked yet
-        compliant_ids = sorted([d["id"] for d in self.devices])
         
         report = {
             "site": self.site,
@@ -153,8 +152,8 @@ class FleetAuditor: #Class representing the network fleet compliance auditor
             "skipped_devices": self.skipped_devices,
             "roles":self.roles,
             "interfaces": self.interface_count,
-            "violations":[],
-            "compliant":compliant_ids
+            "violations":self.violations,
+            "compliant":self.compliant_ids
             }
     
         output_path = Path("audit.json")
@@ -163,7 +162,7 @@ class FleetAuditor: #Class representing the network fleet compliance auditor
                 json.dump(report, f, indent=4,sort_keys=True)
             print (f"Tier 1 audit report successfully written to {output_path}")
         except Exception as e:
-            raise AuditError((f"Error writing audit.json: {e}", output_path.name))
+            raise AuditError(f"Error writing audit.json: {e}", output_path.name)
     
     
         
