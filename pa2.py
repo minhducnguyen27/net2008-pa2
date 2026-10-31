@@ -97,6 +97,7 @@ class FleetAuditor: #Class representing the network fleet compliance auditor
                 "owner": owner,
                 "interface":dev_interfaces
                 })
+            
     def version_check(self,found_version,required_version):
         # Split by dot and convert parts to integers
         found_parts = [int(p) for p in found_version.split(".")]
