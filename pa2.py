@@ -97,7 +97,11 @@ class FleetAuditor: #Class representing the network fleet compliance auditor
                 "owner": owner,
                 "interface":dev_interfaces
                 })
-    
+    def version_check(self,found_version,required_version):
+        # Split by dot and convert parts to integers
+        found_parts = [int(p) for p in found_version.split(".")]
+        required_part = [int(p) for p in required_version.split(".")]
+        return found_parts < required_part
         
     def evaluate_policies(self): #Set up policies to evaluate devices
         min_os_policy = self.policy.get("min_os",{}) # check if the device have mininum OS
@@ -107,6 +111,7 @@ class FleetAuditor: #Class representing the network fleet compliance auditor
         for dev in self.devices:
             dev_id = dev["id"]
             role = dev["role"]
+            os_version=dev["os"]
             owner = dev["owner"]
             interfaces = dev["interface"]
             
@@ -119,6 +124,16 @@ class FleetAuditor: #Class representing the network fleet compliance auditor
                         "type":"unknown_role",
                         "role":role})
                     dev_violation = True
+                else:
+                    # Check os_outdate - Tier 3
+                    required_os = min_os_policy[role]
+                    if self.version_check(os_version,required_os):
+                        self.violations.append({
+                            "device": dev_id,
+                            "type": "os_outdated",
+                            "found": os_version,
+                            "required": required_os})
+                        dev_violation =True
                         
             if require_owner_policy is True and not owner: # Check for missing onwer
                 self.violations.append({
@@ -141,7 +156,7 @@ class FleetAuditor: #Class representing the network fleet compliance auditor
     
         self.compliant_ids.sort()
     
-    def version_check(self):
+
         
         
     def generate_report(self): #Process Tier 1 and Tier 2 and write the audit.json output file
