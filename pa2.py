@@ -20,7 +20,7 @@ class AuditError(Exception): #Custom exception class for policy or parsing error
         self.filename = filename
 
 class FleetAuditor: #Class representing the network fleet compliance auditor
-    def __init__(self,xml_path: str, yaml_path: str):
+    def __init__(self,xml_path, yaml_path):
         self.xml_path = Path(xml_path)
         self.yaml_path = Path(yaml_path)
         self.policy={}
@@ -58,12 +58,12 @@ class FleetAuditor: #Class representing the network fleet compliance auditor
         except Exception as e:
             raise AuditError(f"Error Parsing XML inventory: {e}",self.xml_path.name)
         
-        self.site = root.get("site",None)
+        self.site = root.get("site",None)               #Find site value from XML file
         
-        for device in root.findall("device"):
+        for device in root.findall("device"):           #Find all deivces in  XML file
             device_id = device.get("id")
             
-            if not device_id or not device_id.strip(): # A device with no id attribute is skipped and couted
+            if not device_id or not device_id.strip(): #A device with no id attribute is skipped and couted
                 self.skipped_devices += 1 
                 continue
             
@@ -73,7 +73,7 @@ class FleetAuditor: #Class representing the network fleet compliance auditor
             
             
             if role:
-                self.roles[role] = self.roles.get(role,0) + 1 
+                self.roles[role] = self.roles.get(role,0) + 1  #Object: role to the number of kept devices with that role
             
             dev_interfaces = []
             for iface in device.findall("interface"):
@@ -140,6 +140,9 @@ class FleetAuditor: #Class representing the network fleet compliance auditor
                 self.compliant_ids.append(dev_id)
     
         self.compliant_ids.sort()
+    
+    def version_check(self):
+        
         
     def generate_report(self): #Process Tier 1 and Tier 2 and write the audit.json output file
         self.load_files()
