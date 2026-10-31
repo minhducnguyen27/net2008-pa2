@@ -30,8 +30,10 @@ class FleetAuditor: #Class representing the network fleet compliance auditor
         self.roles = {}
         self.interface_count={"up":0,"down":0,"other":0}
         self.devices = []
-
-    def load_files(self)->None: # Safely load and validate both the XML inventory and YAML policy files
+        self.violations=[]
+        self.compliant_ids=[]
+        
+    def load_files(self): # Safely load and validate both the XML inventory and YAML policy files
         if not self.xml_path.exists() or not self.yaml_path.exists():
             raise AuditError("Input files do not exist")
         
@@ -95,9 +97,51 @@ class FleetAuditor: #Class representing the network fleet compliance auditor
                 "owner": owner,
                 "interface":dev_interfaces
                 })
+    
         
+    def evaluate_policies(self): #Set up policies to evaluate devices
+        min_os_policy = self.policy.get("min_os",{}) # check if the device have mininum OS
+        require_owner_policy = self.policy.get("require_owner",False) # check if the device have owner
+        max_down_policy = self.policy.get("max_down_interface",None) # check if the device have max down policy
         
-    def generate_report(self) -> None: #Process Tier 1 rules and write the audit.json output file
+        for dev in self.devices:
+            dev_id = dev["id"]
+            role = dev["role"]
+            owner = dev["owner"]
+            interfaces = dev["interface"]
+            
+            dev_violation = False
+            
+            if min_os_policy is not None: #Check for unknown role
+                if role not in min_os_policy:
+                    self.violations.append({
+                        "device": dev_id,
+                        "type":"unknow_role",
+                        "role":role})
+                    dev_violation = True
+                        
+            if require_owner_policy is True and not owner: # Check for missing onwer
+                self.violations.append({
+                    "device":dev_id,
+                    "type":"missing_owner",
+                    "none":None})
+                dev_violation = True
+                
+            if max_down_policy is not None: # Check for max down
+                down_count = sum (1 for link in interfaces if link["status"=="down"])
+                if down_count > max_down_policy:
+                    self.violations.append({
+                        "device": dev_id,
+                        "type":"too_many_down",
+                        "down":down_count})
+                    dev_violation = True
+           
+            if not dev_violation: # If no violations for device, add to compliant list
+                self.compliant_ids.append(dev_id)
+    
+        self.compliant_ids.sort()
+        
+    def generate_report(self): #Process Tier 1 and Tier 2 and write the audit.json output file
         self.load_files()
         
         # sorted IDs of all kept devices with no violations checked yet
@@ -120,7 +164,8 @@ class FleetAuditor: #Class representing the network fleet compliance auditor
             print (f"Tier 1 audit report successfully written to {output_path}")
         except Exception as e:
             raise AuditError((f"Error writing audit.json: {e}", output_path.name))
-            
+    
+    
         
 def main():
     if len(sys.argv) != 3:
